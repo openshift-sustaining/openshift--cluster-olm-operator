@@ -40,12 +40,13 @@ import (
 )
 
 type Builder struct {
-	Assets            string
-	Clients           *clients.Clients
-	ControllerContext *controllercmd.ControllerContext
-	KnownRESTMappings map[schema.GroupVersionKind]*meta.RESTMapping
-	FeatureGate       configv1.FeatureGate
-	Infrastructure    *configv1.Infrastructure
+	Assets                 string
+	Clients                *clients.Clients
+	ControllerContext      *controllercmd.ControllerContext
+	KnownRESTMappings      map[schema.GroupVersionKind]*meta.RESTMapping
+	FeatureGate            configv1.FeatureGate
+	Infrastructure         *configv1.Infrastructure
+	ClusterCatalogImageTag string
 }
 
 func (b *Builder) BuildControllers(subDirectories ...string) (map[string]factory.Controller, map[string]factory.Controller, map[string]factory.Controller, []configv1.ObjectReference, error) {

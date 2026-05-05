@@ -73,6 +73,17 @@ func (v *HelmValues) HasEnabledFeatureGates() (bool, error) {
 	return false, nil
 }
 
+// GetStringValue reads a dot-delimited string value from the Helm values map.
+// Returns the value and true if found; returns "", false if the key is absent or not a string.
+func (v *HelmValues) GetStringValue(location string) (string, bool) {
+	ss := strings.Split(location, ".")
+	val, found, err := unstructured.NestedString(v.values, ss...)
+	if err != nil || !found {
+		return "", false
+	}
+	return val, true
+}
+
 func (v *HelmValues) SetStringValue(location string, newValue string) error {
 	if location == "" {
 		return errors.New("location string has no locations")
