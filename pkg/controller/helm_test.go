@@ -14,6 +14,7 @@ import (
 
 	internalfeatures "github.com/openshift/cluster-olm-operator/internal/featuregates"
 	"github.com/openshift/cluster-olm-operator/pkg/clients"
+	"github.com/openshift/cluster-olm-operator/pkg/helmvalues"
 )
 
 func TestRenderHelmTemplate(t *testing.T) {
@@ -73,6 +74,56 @@ func TestRenderHelmTemplate(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, compareData, testData)
+}
+
+func TestApplyCatalogImageTagOverride(t *testing.T) {
+	const versionKey = "options.openshift.catalogs.version"
+
+	tests := []struct {
+		name        string
+		initialTag  string // set at versionKey before the call; empty means key is absent
+		clusterTag  string
+		expectedTag string // expected value at versionKey after the call; empty means key absent
+	}{
+		{
+			name:        "clusterTag empty - no override regardless of Helm value",
+			initialTag:  catalogVersionSentinel,
+			clusterTag:  "",
+			expectedTag: catalogVersionSentinel,
+		},
+		{
+			name:        "sentinel present, cluster is 4.23 - override to v4.23",
+			initialTag:  catalogVersionSentinel,
+			clusterTag:  "v4.23",
+			expectedTag: "v4.23",
+		},
+		{
+			name:        "Helm pins v4.23 - not the sentinel, no override",
+			initialTag:  "v4.23",
+			clusterTag:  "v4.23",
+			expectedTag: "v4.23",
+		},
+		{
+			name:        "version key absent in Helm values - no override",
+			initialTag:  "",
+			clusterTag:  "v4.23",
+			expectedTag: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hv := helmvalues.NewHelmValues()
+			if tt.initialTag != "" {
+				require.NoError(t, hv.SetStringValue(versionKey, tt.initialTag))
+			}
+
+			require.NoError(t, applyCatalogImageTagOverride(hv, tt.clusterTag))
+
+			got, _ := hv.GetStringValue(versionKey)
+			require.Equal(t, tt.expectedTag, got)
+		})
+	}
 }
 
 func TestSplitYAMLDocuments(t *testing.T) {

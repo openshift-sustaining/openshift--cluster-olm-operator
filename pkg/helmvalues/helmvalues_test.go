@@ -257,6 +257,69 @@ func TestHasEnabledFeatureGates(t *testing.T) {
 	}
 }
 
+func TestGetStringValue(t *testing.T) {
+	tests := []struct {
+		name      string
+		values    map[string]interface{}
+		location  string
+		wantVal   string
+		wantFound bool
+	}{
+		{
+			name:      "missing key",
+			values:    map[string]interface{}{},
+			location:  "options.openshift.catalogs.version",
+			wantFound: false,
+		},
+		{
+			name:      "simple key",
+			values:    map[string]interface{}{"key": "value"},
+			location:  "key",
+			wantVal:   "value",
+			wantFound: true,
+		},
+		{
+			name: "nested key",
+			values: map[string]interface{}{
+				"options": map[string]interface{}{
+					"openshift": map[string]interface{}{
+						"catalogs": map[string]interface{}{
+							"version": "v5.0",
+						},
+					},
+				},
+			},
+			location:  "options.openshift.catalogs.version",
+			wantVal:   "v5.0",
+			wantFound: true,
+		},
+		{
+			name: "non-string value returns not found",
+			values: map[string]interface{}{
+				"options": map[string]interface{}{
+					"replicas": int64(2),
+				},
+			},
+			location:  "options.replicas",
+			wantFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hv := NewHelmValues()
+			hv.values = tt.values
+			got, found := hv.GetStringValue(tt.location)
+			if got != tt.wantVal {
+				t.Errorf("GetStringValue() val = %q, want %q", got, tt.wantVal)
+			}
+			if found != tt.wantFound {
+				t.Errorf("GetStringValue() found = %v, want %v", found, tt.wantFound)
+			}
+		})
+	}
+}
+
 func TestSetStringValue(t *testing.T) {
 	tests := []struct {
 		name        string

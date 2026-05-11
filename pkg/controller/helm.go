@@ -20,6 +20,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// catalogVersionSentinel is a placeholder value that openshift.yaml sets for
+// options.openshift.catalogs.version to indicate the catalog tag should be
+// resolved dynamically from the running cluster's OCP major.minor version.
+const catalogVersionSentinel = "ocp-release"
+
 // Expected path structure:
 // ${assets}/helm/${subDir}/olmv1/ = chart
 // ${assets}/helm/${subDir}/openshift.yaml = primary values file
@@ -79,6 +84,11 @@ func (b *Builder) renderHelmTemplate(helmPath, manifestDir string) error {
 	}
 	if err := values.SetStringValue("options.operatorController.deployment.image", os.Getenv("OPERATOR_CONTROLLER_IMAGE")); err != nil {
 		return fmt.Errorf("error setting OPERATOR_CONTROLLER_IMAGE: %w", err)
+	}
+	// When openshift.yaml sets options.openshift.catalogs.version to catalogVersionSentinel,
+	// replace it with the tag derived from the running cluster's OCP major.minor version.
+	if err := applyCatalogImageTagOverride(values, b.ClusterCatalogImageTag); err != nil {
+		return fmt.Errorf("error setting catalog image tag: %w", err)
 	}
 
 	// On HighlyAvailable topologies scale to 2 replicas and enable the PDB so that rolling
@@ -220,6 +230,21 @@ type DocumentInfo struct {
 	Resource K8sResource
 	Text     string
 	Order    int
+}
+
+// applyCatalogImageTagOverride replaces options.openshift.catalogs.version in the
+// Helm values when it equals catalogVersionSentinel, substituting the tag derived
+// from the running cluster's OCP major.minor version. It is a no-op when clusterTag
+// is empty or when the current value is not catalogVersionSentinel.
+func applyCatalogImageTagOverride(values *helmvalues.HelmValues, clusterTag string) error {
+	if clusterTag == "" {
+		return nil
+	}
+	currentTag, found := values.GetStringValue("options.openshift.catalogs.version")
+	if !found || currentTag != catalogVersionSentinel {
+		return nil
+	}
+	return values.SetStringValue("options.openshift.catalogs.version", clusterTag)
 }
 
 func splitYAMLDocuments(content string) []string {
